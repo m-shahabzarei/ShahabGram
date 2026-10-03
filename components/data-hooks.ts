@@ -72,7 +72,8 @@ export function useMessages(conversationId: string) {
         channel = supabase.channel(`messages:${conversationId}`).on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: `conversation_id=eq.${conversationId}` }, (payload) => {
           const next = mapMessage(payload.new);
           setData((previous) => previous.some((item) => item.id === next.id || (next.clientId && item.clientId === next.clientId)) ? previous : [...previous, next]);
-        }).subscribe((status: string) => {
+        }).subscribe((status: string, error?: Error) => {
+          if (status !== "SUBSCRIBED") console.warn("[ShahabGram] realtime status", status, error?.message ?? "");
           if (!active || status === "SUBSCRIBED") return;
           if (!fallbackTimer) fallbackTimer = setInterval(() => { void sync(); }, 2500);
         });
