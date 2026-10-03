@@ -9,7 +9,7 @@ import { Icon } from "./icon";
 
 export function ChatScreen({ conversationId }: { conversationId: string }) {
   const conversation = useConversation(conversationId);
-  const { data: conversations } = useConversations();
+  const { data: conversations, loading: conversationsLoading } = useConversations();
   const { data: messages, loading, sending, send } = useMessages(conversationId);
   const [draft, setDraft] = useState("");
   const submit = async (event: FormEvent<HTMLFormElement>) => { event.preventDefault(); if (!draft.trim() || sending) return; await send(draft); setDraft(""); };
@@ -27,16 +27,16 @@ export function ChatScreen({ conversationId }: { conversationId: string }) {
         <Link className="icon-button" aria-label="مدیریت گفت‌وگو" href={`/chat/${conversationId}/settings`}><Icon name="more" size={19} /></Link>
       </header>
       <div className="message-scroll" aria-live="polite">
-        {loading ? <div className="empty-state"><span className="mono">LOADING…</span></div> : messages.length ? messages.map((message) => <div className="message-row" data-own={Boolean(message.own)} key={message.id}>
+        {loading || conversationsLoading ? <div className="empty-state"><span className="mono">LOADING…</span></div> : !conversation ? <div className="empty-state"><p>این گفت‌وگو پیدا نشد.</p><Link className="button button--ghost" href="/">بازگشت به صندوق ورودی</Link></div> : messages.length ? messages.map((message) => <div className="message-row" data-own={Boolean(message.own)} key={message.id}>
           {!message.own && <span className="avatar" aria-hidden="true">{message.author.slice(0, 1)}</span>}
           <article className="message-bubble"><p className="message-text" dir="auto">{message.body}</p><div className="message-meta"><time>{message.timestamp}</time>{message.own && message.read && <Icon name="check" size={13} />}</div></article>
         </div>) : <div className="empty-state"><p>این گفت‌وگو هنوز پیامی ندارد.</p><span>اولین پیام را بفرست.</span></div>}
       </div>
-      <form className="chat-composer" onSubmit={submit}>
+      {conversation && <form className="chat-composer" onSubmit={submit}>
         <button className="icon-button" type="button" aria-label="پیوست"><Icon name="paperclip" size={19} /></button>
         <textarea className="textarea" value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="پیامت را بنویس…" rows={1} aria-label="متن پیام" />
         <button className="button button--primary" type="submit" disabled={!draft.trim() || sending}><Icon name="send" size={18} /><span>{sending ? "…" : "ارسال"}</span></button>
-      </form>
+      </form>}
     </section>
   </div>;
 }

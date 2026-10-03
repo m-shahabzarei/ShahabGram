@@ -8,12 +8,6 @@ export type Message = { id: string; body: string; timestamp: string; author: str
 export type UserPreferences = { language: "fa" | "en"; notifications: boolean; desktopAlerts: boolean; readReceipts: boolean; };
 export type SessionUser = { id: string; username: string; displayName: string; bio: string | null; avatarUrl: string | null; language: "fa" | "en"; lastSeenAt: string | null };
 
-const fallbackConversations: Conversation[] = [
-  { id: "niloofar", name: "نیلوفر احمدی", handle: "@niloofar", preview: "برای ارائه فردا آماده‌ای؟", time: "۱۰:۴۲", unread: 2, online: true, initials: "ن", type: "direct" },
-  { id: "product", name: "تیم محصول", handle: "۱۲ عضو", preview: "مریم: نسخه جدید آماده شد.", time: "۰۹:۱۸", unread: 7, initials: "ت", type: "group" },
-  { id: "omid", name: "امید رضایی", handle: "@omid", preview: "لینک فایل را همین‌جا می‌فرستم.", time: "دیروز", online: true, initials: "ا", type: "direct" },
-];
-const fallbackMessages: Record<string, Message[]> = { niloofar: [{ id: "m1", body: "سلام! برای ارائه فردا آماده‌ای؟", timestamp: "۱۰:۳۷", author: "نیلوفر احمدی" }, { id: "m2", body: "سلام نیلوفر، بله. اسلایدهای بخش آخر را هم بازبینی کردم.", timestamp: "۱۰:۳۹", author: "شهاب", own: true, read: true }, { id: "m3", body: "عالیه. پس ساعت ۹ یک مرور کوتاه داشته باشیم؟", timestamp: "۱۰:۴۰", author: "نیلوفر احمدی" }], product: [{ id: "p1", body: "نسخه جدید آماده شد. لطفاً روی محیط آزمایشی بررسی کنید.", timestamp: "۰۹:۰۸", author: "مریم" }] };
 const defaultPreferences: UserPreferences = { language: "fa", notifications: true, desktopAlerts: false, readReceipts: true };
 let currentUserId: string | null = null;
 
@@ -30,21 +24,22 @@ function mapMessage(row: any): Message { const created = row.createdAt ?? row.cr
 
 export function useSessionUser() {
   const [user, setUser] = useState<SessionUser | null>(null); const [loading, setLoading] = useState(true);
-  useEffect(() => { request<{ user: SessionUser }>("/api/auth/me").then((value) => { currentUserId = value.user.id; setUser(value.user); }).catch(() => setUser(null)).finally(() => setLoading(false)); }, []);
+  useEffect(() => { request<{ user: SessionUser }>("/api/auth/me").then((value) => { currentUserId = value.user.id; setUser(value.user); }).catch(() => { currentUserId = null; setUser(null); }).finally(() => setLoading(false)); }, []);
   return { user, loading, setUser };
 }
 
 export function useConversations() {
-  const [data, setData] = useState<Conversation[]>([]); const [loading, setLoading] = useState(true);
-  const reload = useCallback(() => { setLoading(true); return request<{ conversations: any[] }>("/api/conversations").then((value) => setData(value.conversations.map(mapConversation))).catch(() => setData(fallbackConversations)).finally(() => setLoading(false)); }, []);
+  const [data, setData] = useState<Conversation[]>([]); const [loading, setLoading] = useState(true); const [error, setError] = useState<string | null>(null);
+  const reload = useCallback(() => { setLoading(true); setError(null); return request<{ conversations: any[] }>("/api/conversations").then((value) => setData(value.conversations.map(mapConversation))).catch((reason) => { setData([]); setError(reason instanceof Error ? reason.message : "گفت‌وگوها بارگذاری نشدند"); }).finally(() => setLoading(false)); }, []);
   useEffect(() => { void reload(); }, [reload]);
-  return { data, loading, reload };
+  return { data, loading, error, reload };
 }
 
 export function useMessages(conversationId: string) {
-  const [data, setData] = useState<Message[]>([]); const [loading, setLoading] = useState(true); const [sending, setSending] = useState(false);
+  const [data, setData] = useState<Message[]>([]); const [loading, setLoading] = useState(true); const [sending, setSending] = useState(false); const [error, setError] = useState<string | null>(null);
   useEffect(() => {
     let active = true;
+    setData([]); setLoading(true); setError(null);
     const mergeMessages = (rows: any[]) => {
       const incoming = rows.map(mapMessage);
       setData((previous) => {
@@ -58,11 +53,10 @@ export function useMessages(conversationId: string) {
         return [...byKey.values()].sort((a, b) => (a.createdAt ?? "").localeCompare(b.createdAt ?? ""));
       });
     };
-    const sync = () => request<{ messages: any[] }>(`/api/conversations/${conversationId}/messages`).then((value) => { if (active) mergeMessages(value.messages); }).catch(() => undefined);
-    sync().catch(() => undefined);
-    request<{ messages: any[] }>(`/api/conversations/${conversationId}/messages`).then((value) => { if (active) { mergeMessages(value.messages); setLoading(false); } }).catch(() => { if (active) { setData(fallbackMessages[conversationId] ?? []); setLoading(false); } });
+    const sync = () => request<{ messages: any[] }>(`/api/conversations/${conversationId}/messages`).then((value) => { if (active) { mergeMessages(value.messages); setLoading(false); setError(null); } }).catch((reason) => { if (active) { setLoading(false); setError(reason instanceof Error ? reason.message : "پیام‌ها بارگذاری نشدند"); } });
+    void sync();
     let channel: any;
-    let fallbackTimer: ReturnType<typeof setInterval> | undefined;
+    let pollTimer: ReturnType<typeof setInterval> | undefined;
     const supabase = getSupabaseBrowser();
     if (supabase) {
       request<{ token: string }>("/api/realtime-token").then(async ({ token }) => {
@@ -75,16 +69,14 @@ export function useMessages(conversationId: string) {
         }).subscribe((status: string, error?: Error) => {
           if (status !== "SUBSCRIBED") console.warn("[ShahabGram] realtime status", status, error?.message ?? "");
           if (!active || status === "SUBSCRIBED") return;
-          if (!fallbackTimer) fallbackTimer = setInterval(() => { void sync(); }, 2500);
+          if (!pollTimer) pollTimer = setInterval(() => { void sync(); }, 2500);
         });
-      }).catch(() => { if (active && !fallbackTimer) fallbackTimer = setInterval(() => { void sync(); }, 2500); });
-    } else {
-      fallbackTimer = setInterval(() => { void sync(); }, 2500);
+      }).catch(() => { if (active && !pollTimer) pollTimer = setInterval(() => { void sync(); }, 2500); });
     }
-    return () => { active = false; if (fallbackTimer) clearInterval(fallbackTimer); if (channel) void supabase?.removeChannel(channel); };
+    return () => { active = false; if (pollTimer) clearInterval(pollTimer); if (channel) void supabase?.removeChannel(channel); };
   }, [conversationId]);
   const send = useCallback(async (body: string) => { if (!body.trim()) return; setSending(true); const clientId = crypto.randomUUID(); const optimistic: Message = { id: `client-${clientId}`, body: body.trim(), timestamp: "اکنون", author: "شما", own: true, read: false, clientId }; setData((previous) => [...previous, optimistic]); try { const value = await request<{ message: any }>(`/api/conversations/${conversationId}/messages`, { method: "POST", body: JSON.stringify({ body: body.trim(), clientId }) }); setData((previous) => previous.map((item) => item.clientId === clientId ? mapMessage(value.message) : item)); } catch { setData((previous) => previous.filter((item) => item.clientId !== clientId)); throw new Error("پیام ارسال نشد"); } finally { setSending(false); } }, [conversationId]);
-  return { data, loading, sending, send };
+  return { data, loading, error, sending, send };
 }
 
 export function usePreferences() {
@@ -94,5 +86,5 @@ export function usePreferences() {
   return { data, loading, update };
 }
 
-export function useConversation(conversationId: string) { const { data } = useConversations(); return useMemo(() => data.find((item) => item.id === conversationId) ?? fallbackConversations.find((item) => item.id === conversationId), [conversationId, data]); }
+export function useConversation(conversationId: string) { const { data } = useConversations(); return useMemo(() => data.find((item) => item.id === conversationId), [conversationId, data]); }
 
