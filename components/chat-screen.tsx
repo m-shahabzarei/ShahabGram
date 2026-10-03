@@ -24,7 +24,7 @@ export function ChatScreen({ conversationId }: { conversationId: string }) {
         <Link href="/" className="icon-button mobile-only" aria-label="بازگشت"><Icon name="arrow-right" size={19} /></Link>
         <span className="avatar" aria-hidden="true">{conversation?.initials ?? "؟"}</span>
         <div className="chat-window-head-main"><h1 id="chat-title">{title}</h1><p>{conversation?.online ? "اکنون آنلاین" : conversation?.handle ?? "گفت‌وگوی خصوصی"}</p></div>
-        <button className="icon-button" aria-label="گزینه‌های بیشتر"><Icon name="more" size={19} /></button>
+        <Link className="icon-button" aria-label="مدیریت گفت‌وگو" href={`/chat/${conversationId}/settings`}><Icon name="more" size={19} /></Link>
       </header>
       <div className="message-scroll" aria-live="polite">
         {loading ? <div className="empty-state"><span className="mono">LOADING…</span></div> : messages.length ? messages.map((message) => <div className="message-row" data-own={Boolean(message.own)} key={message.id}>
@@ -40,3 +40,5 @@ export function ChatScreen({ conversationId }: { conversationId: string }) {
     </section>
   </div>;
 }
+
+
