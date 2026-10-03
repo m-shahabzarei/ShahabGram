@@ -45,13 +45,42 @@ export function useMessages(conversationId: string) {
   const [data, setData] = useState<Message[]>([]); const [loading, setLoading] = useState(true); const [sending, setSending] = useState(false);
   useEffect(() => {
     let active = true;
-    request<{ messages: any[] }>(`/api/conversations/${conversationId}/messages`).then((value) => { if (active) setData(value.messages.map(mapMessage)); }).catch(() => { if (active) setData(fallbackMessages[conversationId] ?? []); }).finally(() => { if (active) setLoading(false); });
+    const mergeMessages = (rows: any[]) => {
+      const incoming = rows.map(mapMessage);
+      setData((previous) => {
+        const byKey = new Map(previous.map((item) => [item.id, item]));
+        const byClient = new Map(previous.filter((item) => item.clientId).map((item) => [item.clientId as string, item]));
+        for (const item of incoming) {
+          const optimistic = item.clientId ? byClient.get(item.clientId) : undefined;
+          if (optimistic) byKey.delete(optimistic.id);
+          byKey.set(item.id, item);
+        }
+        return [...byKey.values()].sort((a, b) => (a.createdAt ?? "").localeCompare(b.createdAt ?? ""));
+      });
+    };
+    const sync = () => request<{ messages: any[] }>(`/api/conversations/${conversationId}/messages`).then((value) => { if (active) mergeMessages(value.messages); }).catch(() => undefined);
+    sync().catch(() => undefined);
+    request<{ messages: any[] }>(`/api/conversations/${conversationId}/messages`).then((value) => { if (active) { mergeMessages(value.messages); setLoading(false); } }).catch(() => { if (active) { setData(fallbackMessages[conversationId] ?? []); setLoading(false); } });
     let channel: any;
+    let fallbackTimer: ReturnType<typeof setInterval> | undefined;
     const supabase = getSupabaseBrowser();
     if (supabase) {
-      request<{ token: string }>("/api/realtime-token").then(({ token }) => { if (!active) return; supabase.realtime.setAuth(token); channel = supabase.channel(`messages:${conversationId}`).on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: `conversation_id=eq.${conversationId}` }, (payload) => { const next = mapMessage(payload.new); setData((previous) => previous.some((item) => item.id === next.id || (next.clientId && item.clientId === next.clientId)) ? previous : [...previous, next]); }).subscribe(); }).catch(() => undefined);
+      request<{ token: string }>("/api/realtime-token").then(async ({ token }) => {
+        if (!active) return;
+        await supabase.realtime.setAuth(token);
+        if (!active) return;
+        channel = supabase.channel(`messages:${conversationId}`).on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: `conversation_id=eq.${conversationId}` }, (payload) => {
+          const next = mapMessage(payload.new);
+          setData((previous) => previous.some((item) => item.id === next.id || (next.clientId && item.clientId === next.clientId)) ? previous : [...previous, next]);
+        }).subscribe((status: string) => {
+          if (!active || status === "SUBSCRIBED") return;
+          if (!fallbackTimer) fallbackTimer = setInterval(() => { void sync(); }, 2500);
+        });
+      }).catch(() => { if (active && !fallbackTimer) fallbackTimer = setInterval(() => { void sync(); }, 2500); });
+    } else {
+      fallbackTimer = setInterval(() => { void sync(); }, 2500);
     }
-    return () => { active = false; if (channel) void supabase?.removeChannel(channel); };
+    return () => { active = false; if (fallbackTimer) clearInterval(fallbackTimer); if (channel) void supabase?.removeChannel(channel); };
   }, [conversationId]);
   const send = useCallback(async (body: string) => { if (!body.trim()) return; setSending(true); const clientId = crypto.randomUUID(); const optimistic: Message = { id: `client-${clientId}`, body: body.trim(), timestamp: "اکنون", author: "شما", own: true, read: false, clientId }; setData((previous) => [...previous, optimistic]); try { const value = await request<{ message: any }>(`/api/conversations/${conversationId}/messages`, { method: "POST", body: JSON.stringify({ body: body.trim(), clientId }) }); setData((previous) => previous.map((item) => item.clientId === clientId ? mapMessage(value.message) : item)); } catch { setData((previous) => previous.filter((item) => item.clientId !== clientId)); throw new Error("پیام ارسال نشد"); } finally { setSending(false); } }, [conversationId]);
   return { data, loading, sending, send };
