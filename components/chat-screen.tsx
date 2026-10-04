@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { ConversationList } from "./conversation-list";
-import { useConversations, useMessages } from "./data-hooks";
+import { useConversationRead, useConversations, useMessages } from "./data-hooks";
 import { GlobalSearchResults } from "./global-search-results";
 import { Icon } from "./icon";
 
@@ -14,6 +14,8 @@ export function ChatScreen({ conversationId }: { conversationId: string }) {
   const { data: conversations, loading: conversationsLoading, reload } = useConversations();
   const conversation = conversations.find((item) => item.id === conversationId);
   const { data: messages, loading, sending, send, remove } = useMessages(conversationId);
+  const latestMessage = messages.findLast((message) => !message.id.startsWith("client-") && !message.deletedAt);
+  useConversationRead(conversationId, latestMessage?.id, !loading && !conversationsLoading && Boolean(conversation));
   const [draft, setDraft] = useState("");
   const [query, setQuery] = useState("");
   const [activeTab, setActiveTab] = useState<"all" | "personal" | "groups" | "channels">("all");

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getSupabaseBrowser } from "@/lib/supabase";
 
 export type Conversation = { id: string; name: string; handle: string; preview: string; time: string; unread?: number; online?: boolean; initials: string; type?: "direct" | "group" | "channel"; };
@@ -35,9 +35,78 @@ export function useSessionUser() {
 
 export function useConversations() {
   const [data, setData] = useState<Conversation[]>([]); const [loading, setLoading] = useState(true); const [error, setError] = useState<string | null>(null);
-  const reload = useCallback(() => { setLoading(true); setError(null); return request<{ conversations: any[] }>("/api/conversations").then((value) => setData(value.conversations.map(mapConversation))).catch((reason) => { setData([]); setError(reason instanceof Error ? reason.message : "گفت‌وگوها بارگذاری نشدند"); }).finally(() => setLoading(false)); }, []);
-  useEffect(() => { void reload(); }, [reload]);
+  const requestVersion = useRef(0);
+  const pendingRequests = useRef(0);
+  const reload = useCallback((quiet = false) => {
+    const version = ++requestVersion.current;
+    pendingRequests.current += 1;
+    if (!quiet) setLoading(true);
+    setError(null);
+    return request<{ conversations: any[] }>("/api/conversations").then((value) => {
+      if (version === requestVersion.current) setData(value.conversations.map(mapConversation));
+    }).catch((reason) => {
+      if (version !== requestVersion.current) return;
+      if (!quiet) setData([]);
+      setError(reason instanceof Error ? reason.message : "گفت‌وگوها بارگذاری نشدند");
+    }).finally(() => {
+      pendingRequests.current -= 1;
+      if (version === requestVersion.current) setLoading(false);
+    });
+  }, []);
+  useEffect(() => {
+    void reload();
+    const refreshVisible = () => { if (document.visibilityState === "visible" && !pendingRequests.current) void reload(true); };
+    const refreshAfterRead = () => { void reload(true); };
+    const timer = window.setInterval(refreshVisible, 5000);
+    window.addEventListener("shahabgram:conversation-read", refreshAfterRead);
+    window.addEventListener("focus", refreshVisible);
+    document.addEventListener("visibilitychange", refreshVisible);
+    return () => {
+      requestVersion.current += 1;
+      window.clearInterval(timer);
+      window.removeEventListener("shahabgram:conversation-read", refreshAfterRead);
+      window.removeEventListener("focus", refreshVisible);
+      document.removeEventListener("visibilitychange", refreshVisible);
+    };
+  }, [reload]);
   return { data, loading, error, reload };
+}
+
+export function useConversationRead(conversationId: string, latestMessageId: string | undefined, enabled: boolean) {
+  const acknowledged = useRef("");
+  useEffect(() => {
+    if (!enabled || !latestMessageId || latestMessageId.startsWith("client-")) return;
+    const key = `${conversationId}:${latestMessageId}`;
+    const controller = new AbortController();
+    let pending = false;
+    let retryTimer: number | undefined;
+    const markRead = async () => {
+      if (controller.signal.aborted || pending || acknowledged.current === key || document.visibilityState !== "visible" || !document.hasFocus()) return;
+      window.clearTimeout(retryTimer);
+      pending = true;
+      try {
+        await request(`/api/conversations/${conversationId}/read`, { method: "POST", body: JSON.stringify({ messageId: latestMessageId }), signal: controller.signal });
+        if (!controller.signal.aborted) {
+          acknowledged.current = key;
+          window.dispatchEvent(new CustomEvent("shahabgram:conversation-read", { detail: { conversationId } }));
+        }
+      } catch {
+        if (!controller.signal.aborted) retryTimer = window.setTimeout(() => { void markRead(); }, 2500);
+      } finally {
+        pending = false;
+      }
+    };
+    const readVisible = () => { void markRead(); };
+    readVisible();
+    window.addEventListener("focus", readVisible);
+    document.addEventListener("visibilitychange", readVisible);
+    return () => {
+      controller.abort();
+      window.clearTimeout(retryTimer);
+      window.removeEventListener("focus", readVisible);
+      document.removeEventListener("visibilitychange", readVisible);
+    };
+  }, [conversationId, latestMessageId, enabled]);
 }
 
 export function useMessages(conversationId: string) {

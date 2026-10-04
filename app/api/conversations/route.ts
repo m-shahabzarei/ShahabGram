@@ -32,12 +32,14 @@ export async function GET() {
       const conv = mapConversation(counterpart ? { ...row.conversations, title: counterpart.display_name ?? counterpart.username, avatar_url: counterpart.avatar_url } : row.conversations);
       const lastMessage = (latest ?? []).find((message: any) => message.conversation_id === conv.id);
       let unreadCount = 0;
-      let countQuery = db.from("messages").select("id", { count: "exact", head: true }).eq("conversation_id", conv.id).neq("sender_id", user.id);
+      let countQuery = db.from("messages").select("id", { count: "exact", head: true }).eq("conversation_id", conv.id).neq("sender_id", user.id).is("deleted_at", null);
       if (row.last_read_message_id) {
-        const { data: marker } = await db.from("messages").select("created_at").eq("id", row.last_read_message_id).maybeSingle();
+        const { data: marker, error: markerError } = await db.from("messages").select("created_at").eq("id", row.last_read_message_id).eq("conversation_id", conv.id).maybeSingle();
+        if (markerError) throw new Error("Could not load read marker");
         if (marker?.created_at) countQuery = countQuery.gt("created_at", marker.created_at);
       }
       const result = await countQuery;
+      if (result.error) throw new Error("Could not count unread messages");
       unreadCount = result.count ?? 0;
       return { ...conv, lastMessage: lastMessage ? mapMessage(lastMessage) : null, unreadCount };
     }));
