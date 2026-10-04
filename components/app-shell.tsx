@@ -10,14 +10,14 @@ import { useSessionUser } from "./data-hooks";
 type NavItem = { href: string; label: string; icon: "inbox" | "chat" | "settings" };
 const navItems: NavItem[] = [{ href: "/", label: "صندوق ورودی", icon: "inbox" }, { href: "/groups/new", label: "گروه جدید", icon: "chat" }, { href: "/settings", label: "تنظیمات", icon: "settings" }];
 
-export function AppShell({ children, title = "صندوق ورودی", hint = "فضایی آرام برای گفت‌وگو" }: { children: ReactNode; title?: string; hint?: string }) {
+export function AppShell({ children, title = "صندوق ورودی", hint = "فضایی آرام برای گفت‌وگو", mode = "default" }: { children: ReactNode; title?: string; hint?: string; mode?: "default" | "telegram" }) {
   const pathname = usePathname(); const router = useRouter(); const { user, loading } = useSessionUser();
   useEffect(() => { if (!loading && !user) router.replace(`/auth?next=${encodeURIComponent(pathname)}`); }, [loading, pathname, router, user]);
   const isActive = (href: string) => href === "/" ? pathname === "/" : pathname.startsWith(href);
   async function logout() { await fetch("/api/auth/logout", { method: "POST" }).catch(() => undefined); router.push("/auth"); router.refresh(); }
-  if (loading || !user) return <div className="page-shell" data-direction="rtl"><main className="content-area"><div className="empty-state" role="status">در حال بررسی نشست…</div></main></div>;
+  if (loading || !user) return <div className={`page-shell ${mode === "telegram" ? "page-shell--telegram" : ""}`} data-direction={mode === "telegram" ? "ltr" : "rtl"}><main className="content-area"><div className="empty-state" role="status">در حال بررسی نشست…</div></main></div>;
   const displayName = user?.displayName ?? "مهمان"; const username = user ? `@${user.username}` : "وارد نشده"; const avatar = displayName.slice(0, 1) || "ش";
-  return <div className="page-shell" data-direction="rtl">
+  return <div className={`page-shell ${mode === "telegram" ? "page-shell--telegram" : ""}`} data-direction={mode === "telegram" ? "ltr" : "rtl"}>
     <aside className="side-rail" aria-label="ناوبری اصلی">
       <Link href="/" className="brand-lockup" aria-label="صفحه اصلی شهاب‌گرام"><span className="brand-mark">ش</span><span><strong className="brand-name">ShahabGram</strong><small className="brand-subtitle">quiet conversations</small></span></Link>
       <nav className="side-nav">{navItems.map((item) => <Link key={item.href} href={item.href} className="nav-link" aria-current={isActive(item.href) ? "page" : undefined}><Icon name={item.icon} size={20} /><span>{item.label}</span></Link>)}</nav>

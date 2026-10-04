@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { AppShell } from "../components/app-shell";
+import { ChatScreen } from "../components/chat-screen";
 import { ConversationList } from "../components/conversation-list";
 import { Icon } from "../components/icon";
 import { useConversations, useSessionUser } from "../components/data-hooks";
@@ -11,6 +12,7 @@ export default function HomePage() {
   const { user } = useSessionUser();
   const unreadCount = conversations.reduce((total, item) => total + (item.unread ?? 0), 0);
   const onlineCount = conversations.filter((item) => item.online).length;
+  if (!loading && conversations[0]) return <AppShell mode="telegram" title="گفت‌وگو" hint="پیام‌رسانی ساده و متمرکز"><ChatScreen conversationId={conversations[0].id} /></AppShell>;
   return <AppShell>
     <div className="section-heading">
       <div><span className="eyebrow mono">INBOX</span><h1>سلام {user?.displayName ?? ""}،</h1><p>اینجا می‌توانی گفت‌وگوهای خودت را با تمرکز دنبال کنی.</p></div>
