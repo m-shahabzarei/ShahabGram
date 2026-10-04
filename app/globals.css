@@ -353,3 +353,20 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 .profile-view { max-width: 680px; text-align: center; display: grid; justify-items: center; gap: 8px; }
 .profile-view h1, .profile-view p { margin: 0; }
 .avatar--large { width: 88px; height: 88px; font-size: 30px; margin-bottom: 8px; }
+
+/* Keep the Telegram shell locked to the viewport. Only the message/list bodies scroll. */
+.page-shell--telegram,
+.page-shell--telegram .main-column,
+.page-shell--telegram .content-area { height: 100dvh; min-height: 0; max-height: 100dvh; overflow: hidden; }
+.page-shell--telegram .chat-layout { height: 100%; min-height: 0; max-height: 100%; overflow: hidden; }
+.page-shell--telegram .chat-list-panel { height: 100%; min-height: 0; max-height: 100%; overflow: hidden; }
+.page-shell--telegram .chat-list-scroll { min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.page-shell--telegram .chat-window { height: 100%; min-height: 0; max-height: 100%; overflow: hidden; }
+.page-shell--telegram .chat-window-head { position: sticky; top: 0; z-index: 5; flex: 0 0 auto; }
+.page-shell--telegram .message-scroll { min-height: 0; flex: 1 1 auto; overflow-y: auto; overscroll-behavior: contain; }
+.page-shell--telegram .chat-composer { position: sticky; bottom: 0; z-index: 5; flex: 0 0 auto; }
+
+@media (max-width: 700px) {
+  .page-shell--telegram .chat-layout { display: block; height: 100%; min-height: 0; max-height: 100%; }
+  .page-shell--telegram .chat-window { height: 100%; min-height: 0; max-height: 100%; }
+}
