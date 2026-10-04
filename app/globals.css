@@ -213,9 +213,13 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 .chat-layout { direction: ltr; grid-template-columns: clamp(320px, 26vw, 476px) minmax(0, 1fr); min-height: 100dvh; background: #08090d; }
 .chat-list-panel { direction: rtl; position: relative; display: flex; flex-direction: column; overflow: hidden; border-inline-end: 1px solid rgba(255,255,255,.06); border-right: 1px solid rgba(255,255,255,.06); background: #212121; }
 .chat-list-toolbar { direction: ltr; display: flex; align-items: center; gap: 9px; height: 60px; padding: 7px 14px 7px 18px; background: #212121; }
+.chat-search-form { min-width: 0; display: flex; flex: 1; }
 .telegram-menu-button { border: 0; background: transparent; color: #e9e9e9; }
 .telegram-menu-button:hover { background: rgba(255,255,255,.08); }
 .chat-search { direction: ltr; display: flex; align-items: center; gap: 9px; min-width: 0; flex: 1; height: 44px; padding: 0 16px; border-radius: 999px; color: #949494; background: #181818; }
+.chat-search:focus-within { box-shadow: inset 0 0 0 2px var(--brand); }
+.chat-search-control { display: grid; place-items: center; width: 28px; height: 32px; flex: 0 0 auto; padding: 0; border: 0; border-radius: 50%; color: #b3b3b3; background: transparent; cursor: pointer; }
+.chat-search-control:hover { color: #fff; }
 .chat-search input { min-width: 0; width: 100%; border: 0; outline: 0; color: #ededed; background: transparent; font-size: 16px; }
 .chat-search input::placeholder { color: #969696; }
 .chat-tabs { direction: ltr; display: flex; align-items: center; gap: 7px; padding: 7px 8px 8px; border-bottom: 1px solid rgba(255,255,255,.06); overflow-x: auto; scrollbar-width: none; }
@@ -286,6 +290,21 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 .chat-send-button { width: 45px; height: 45px; display: grid; place-items: center; flex: 0 0 auto; border: 0; border-radius: 50%; color: #fff; background: var(--brand); cursor: pointer; transition: filter .18s ease, transform .18s ease; }
 .chat-send-button:disabled { opacity: .55; cursor: not-allowed; }
 .chat-send-button:not(:disabled):hover { filter: brightness(1.1); transform: translateY(-1px); }
+
+.global-search-results { margin-top: 20px; }
+.global-search-heading { margin: 16px 0 8px; padding-inline: 8px; font-size: 15px; color: var(--ink-soft); }
+.global-search-list { padding: 0; margin: 0; list-style: none; }
+.global-search-item { min-width: 0; padding-inline: 8px; }
+.global-search-item .conversation-item-name,
+.global-search-item .conversation-item-preview { display: block; }
+.global-search-item .people-row-link { overflow: hidden; }
+.global-search-action { flex: 0 0 auto; min-width: 72px; padding-inline: 12px; }
+.global-search-error { padding-inline: 12px; color: var(--danger); font-size: 13px; overflow-wrap: anywhere; }
+.global-search-results--compact { margin-top: 0; }
+.global-search-results--compact .global-search-heading { margin: 12px 0 8px; padding-inline: 12px; font-size: 13px; }
+.global-search-results--compact .global-search-action { min-width: 58px; min-height: 40px; padding-inline: 9px; font-size: 12px; border-color: rgba(255,255,255,.18); border-radius: 999px; color: #ddd4ff; background: transparent; }
+.global-search-results--compact .global-search-action:hover { background: rgba(135,116,225,.16); }
+.global-search-action:disabled { opacity: .6; cursor: wait; }
 
 @media (max-width: 700px) {
   .page-shell--telegram .chat-layout { display: block; min-height: 100dvh; }

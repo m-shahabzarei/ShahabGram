@@ -1,40 +1,40 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { ConversationList } from "./conversation-list";
-import { useConversation, useConversations, useMessages } from "./data-hooks";
+import { useConversations, useMessages } from "./data-hooks";
+import { GlobalSearchResults } from "./global-search-results";
 import { Icon } from "./icon";
 
 export function ChatScreen({ conversationId }: { conversationId: string }) {
-  const conversation = useConversation(conversationId);
-  const { data: conversations, loading: conversationsLoading } = useConversations();
+  const router = useRouter();
+  const { data: conversations, loading: conversationsLoading, reload } = useConversations();
+  const conversation = conversations.find((item) => item.id === conversationId);
   const { data: messages, loading, sending, send, remove } = useMessages(conversationId);
   const [draft, setDraft] = useState("");
   const [query, setQuery] = useState("");
   const [activeTab, setActiveTab] = useState<"all" | "personal" | "groups" | "channels">("all");
   const [deleteError, setDeleteError] = useState<string | null>(null);
-  const visibleConversations = useMemo(() => conversations.filter((item) => {
-    const matchesQuery = !query.trim() || `${item.name} ${item.preview}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase());
-    const matchesTab = activeTab === "all" || (activeTab === "personal" && item.type === "direct") || (activeTab === "groups" && item.type === "group") || (activeTab === "channels" && item.type === "channel");
-    return matchesQuery && matchesTab;
-  }), [activeTab, conversations, query]);
+  const searching = Boolean(query.trim());
+  const visibleConversations = useMemo(() => conversations.filter((item) => activeTab === "all" || (activeTab === "personal" && item.type === "direct") || (activeTab === "groups" && item.type === "group") || (activeTab === "channels" && item.type === "channel")), [activeTab, conversations]);
   const submit = async (event: FormEvent<HTMLFormElement>) => { event.preventDefault(); if (!draft.trim() || sending) return; await send(draft); setDraft(""); };
+  const submitSidebarSearch = (event: FormEvent<HTMLFormElement>) => { event.preventDefault(); const value = query.trim(); router.push(value ? `/search?q=${encodeURIComponent(value)}` : "/search"); };
   const deleteMessage = async (messageId: string) => { setDeleteError(null); try { await remove(messageId); } catch (error) { setDeleteError(error instanceof Error ? error.message : "حذف پیام انجام نشد"); } };
   const title = conversation?.name ?? "گفت‌وگو";
   return <div className="chat-layout">
     <aside className="chat-list-panel" aria-label="فهرست گفت‌وگوها">
       <div className="chat-list-toolbar">
         <button className="icon-button telegram-menu-button" type="button" aria-label="باز کردن منو"><Icon name="menu" size={21} /></button>
-        <label className="chat-search"><Icon name="search" size={18} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search" aria-label="جست‌وجوی گفت‌وگوها" /></label>
+        <form className="chat-search-form" role="search" onSubmit={submitSidebarSearch}><div className="chat-search"><button type="submit" className="chat-search-control" aria-label="باز کردن جست‌وجوی اصلی"><Icon name="search" size={18} /></button><input value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Escape") setQuery(""); }} dir="auto" autoComplete="off" placeholder="Search" aria-label="جست‌وجوی افراد، گروه‌ها و کانال‌ها" />{query && <button type="button" className="chat-search-control" aria-label="پاک کردن جست‌وجو" onClick={() => setQuery("")}><Icon name="close" size={16} /></button>}</div></form>
       </div>
-      <div className="chat-tabs" role="tablist" aria-label="دسته‌بندی گفت‌وگوها">
+      {!searching && <div className="chat-tabs" role="tablist" aria-label="دسته‌بندی گفت‌وگوها">
         {([['all', 'All'], ['personal', 'Personal'], ['groups', 'Groups'], ['channels', 'Channels']] as const).map(([value, label]) => <button key={value} type="button" role="tab" aria-selected={activeTab === value} data-active={activeTab === value} onClick={() => setActiveTab(value)}>{label}{value === "all" && conversations.length > 0 ? <span>{conversations.length}</span> : null}</button>)}
-      </div>
+      </div>}
       <div className="chat-list-scroll">
-        <Link href="/" className="archived-chat"><span className="archived-avatar"><Icon name="inbox" size={21} /></span><span><strong>Archived Chats</strong><small>گفت‌وگوهای بایگانی‌شده</small></span><Icon name="arrow-left" size={16} /></Link>
-        <ConversationList items={visibleConversations} />
+        {searching ? <GlobalSearchResults query={query} compact onOpened={() => { setQuery(""); void reload(); }} /> : <><Link href="/" className="archived-chat"><span className="archived-avatar"><Icon name="inbox" size={21} /></span><span><strong>Archived Chats</strong><small>گفت‌وگوهای بایگانی‌شده</small></span><Icon name="arrow-left" size={16} /></Link><ConversationList items={visibleConversations} /></>}
       </div>
       <Link href="/search" className="chat-compose-fab" aria-label="گفت‌وگوی جدید"><Icon name="plus" size={25} /></Link>
     </aside>
