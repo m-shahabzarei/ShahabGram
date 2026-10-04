@@ -10,6 +10,7 @@ export interface User {
   bio: string | null;
   avatarUrl: string | null;
   language: Language;
+  isOnline?: boolean;
   lastSeenAt: string | null;
 }
 

@@ -28,7 +28,7 @@ export default function HomePage() {
         </section>
         <section className="card card--padded" aria-labelledby="quick-heading">
           <div className="section-heading"><div><span className="eyebrow">shortcuts</span><h2 id="quick-heading">دسترسی سریع</h2></div></div>
-          <div className="quick-actions"><Link href="/groups/new" className="button"><Icon name="chat" size={18} />ساخت گروه</Link><Link href="/channels/new" className="button"><Icon name="plus" size={18} />ساخت کانال</Link><Link href="/settings" className="button"><Icon name="settings" size={18} />تنظیمات حساب</Link></div>
+          <div className="quick-actions"><Link href="/search" className="button"><Icon name="search" size={18} />پیدا کردن افراد و پیام مستقیم</Link><Link href="/groups/new" className="button"><Icon name="chat" size={18} />ساخت گروه</Link><Link href="/channels/new" className="button"><Icon name="plus" size={18} />ساخت کانال</Link><Link href="/settings" className="button"><Icon name="settings" size={18} />تنظیمات حساب</Link></div>
         </section>
       </div>
     </div>

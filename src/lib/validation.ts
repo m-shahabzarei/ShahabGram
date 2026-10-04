@@ -8,7 +8,9 @@ export const profileSchema = z.object({ displayName: z.string().trim().min(1).ma
 export const messageSchema = z.object({ body: z.string().trim().min(1).max(4000), clientId: z.string().trim().min(8).max(128) });
 export const conversationSchema = z.object({
   type: z.enum(["direct", "group", "channel"]),
-  title: z.string().trim().min(1).max(100),
+  // A direct conversation gets its title from the other participant. Group
+  // and channel creation still validates a title in the conversations route.
+  title: z.string().trim().min(1).max(100).optional(),
   description: z.string().trim().max(500).optional(),
   slug: z.string().trim().toLowerCase().regex(/^[a-z0-9_]{3,48}$/).optional(),
   visibility: z.enum(["public", "private"]).default("private"),

@@ -1,7 +1,7 @@
 import type { Conversation, Message, User } from "@/types";
 
 export function mapUser(row: any): User {
-  return { id: row.id, username: row.username, displayName: row.display_name ?? row.username, bio: row.bio ?? null, avatarUrl: row.avatar_url ?? null, language: row.language === "en" ? "en" : "fa", lastSeenAt: row.last_seen_at ?? null };
+  return { id: row.id, username: row.username, displayName: row.display_name ?? row.username, bio: row.bio ?? null, avatarUrl: row.avatar_url ?? null, language: row.language === "en" ? "en" : "fa", isOnline: Boolean(row.is_online), lastSeenAt: row.last_seen_at ?? null };
 }
 
 export function mapMessage(row: any): Message {
